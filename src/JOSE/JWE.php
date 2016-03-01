@@ -1,6 +1,8 @@
 <?php
 
-require_once dirname(__FILE__) . '/JWT.php';
+use phpseclib\Crypt\RSA;
+use phpseclib\Crypt\AES;
+use phpseclib\Crypt\Random;
 
 class JOSE_JWE extends JOSE_JWT {
     var $plain_text;
@@ -54,7 +56,7 @@ class JOSE_JWE extends JOSE_JWT {
     }
 
     private function rsa($public_or_private_key, $padding_mode) {
-        $rsa = new Crypt_RSA();
+        $rsa = new RSA();
         $rsa->loadKey($public_or_private_key);
         $rsa->setEncryptionMode($padding_mode);
         return $rsa;
@@ -67,7 +69,7 @@ class JOSE_JWE extends JOSE_JWT {
                 throw new JOSE_Exception_UnexpectedAlgorithm('Algorithm not supported');
             case 'A128CBC-HS256':
             case 'A256CBC-HS512':
-                $cipher = new Crypt_AES(CRYPT_AES_MODE_CBC);
+                $cipher = new AES(AES::MODE_CBC);
                 break;
             default:
                 throw new JOSE_Exception_UnexpectedAlgorithm('Unknown algorithm');
@@ -88,7 +90,7 @@ class JOSE_JWE extends JOSE_JWT {
     }
 
     private function generateRandomBytes($length) {
-        return crypt_random_string($length);
+        return Random::string($length);
     }
 
     private function generateIv() {
@@ -125,19 +127,21 @@ class JOSE_JWE extends JOSE_JWT {
         }
     }
 
-    private function encryptContentEncryptionKey($public_or_private_key) {
+    private function encryptContentEncryptionKey($public_key_or_secret) {
         switch ($this->header['alg']) {
             case 'RSA1_5':
-                $rsa = $this->rsa($public_or_private_key, CRYPT_RSA_ENCRYPTION_PKCS1);
+                $rsa = $this->rsa($public_key_or_secret, RSA::ENCRYPTION_PKCS1);
                 $this->jwe_encrypted_key = $rsa->encrypt($this->content_encryption_key);
                 break;
             case 'RSA-OAEP':
-                $rsa = $this->rsa($public_or_private_key, CRYPT_RSA_ENCRYPTION_OAEP);
+                $rsa = $this->rsa($public_key_or_secret, RSA::ENCRYPTION_OAEP);
                 $this->jwe_encrypted_key = $rsa->encrypt($this->content_encryption_key);
+                break;
+            case 'dir':
+                $this->jwe_encrypted_key = '';
                 break;
             case 'A128KW':
             case 'A256KW':
-            case 'dir':
             case 'ECDH-ES':
             case 'ECDH-ES+A128KW':
             case 'ECDH-ES+A256KW':
@@ -150,19 +154,21 @@ class JOSE_JWE extends JOSE_JWT {
         }
     }
 
-    private function decryptContentEncryptionKey($public_or_private_key) {
+    private function decryptContentEncryptionKey($private_key_or_secret) {
         switch ($this->header['alg']) {
             case 'RSA1_5':
-                $rsa = $this->rsa($public_or_private_key, CRYPT_RSA_ENCRYPTION_PKCS1);
+                $rsa = $this->rsa($private_key_or_secret, RSA::ENCRYPTION_PKCS1);
                 $this->content_encryption_key = $rsa->decrypt($this->jwe_encrypted_key);
                 break;
             case 'RSA-OAEP':
-                $rsa = $this->rsa($public_or_private_key, CRYPT_RSA_ENCRYPTION_OAEP);
+                $rsa = $this->rsa($private_key_or_secret, RSA::ENCRYPTION_OAEP);
                 $this->content_encryption_key = $rsa->decrypt($this->jwe_encrypted_key);
+                break;
+            case 'dir':
+                $this->content_encryption_key = $private_key_or_secret;
                 break;
             case 'A128KW':
             case 'A256KW':
-            case 'dir':
             case 'ECDH-ES':
             case 'ECDH-ES+A128KW':
             case 'ECDH-ES+A256KW':

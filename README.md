@@ -41,7 +41,7 @@ $jwt = new JOSE_JWT(array(
 $jws = $jwt->sign($private_key, 'RS256');
 ```
 
-NOTE: `$private_key` can be `Crypt_RSA` instance.
+NOTE: `$private_key` can be `phpseclib\Crypt\RSA` instance.
 
 #### Verification
 
@@ -50,10 +50,10 @@ $public_key = "-----BEGIN RSA PUBLIC KEY-----\n....";
 $jwt_string = 'eyJ...';
 $jwt = JOSE_JWT::decode($jwt_string);
 $jws = new JOSE_JWS($jwt);
-$jws->verify($public_key);
+$jws->verify($public_key, 'RS256');
 ```
 
-NOTE: `$public_key` can be `JOSE_JWK` or `Crypt_RSA` instance.
+NOTE: `$public_key` can be `JOSE_JWK` or `phpseclib\Crypt\RSA` instance.
 
 ### JWE
 
@@ -93,7 +93,7 @@ $jwe->decrypt($private_key);
 ##### RSA Public Key
 
 ```php
-$public_key = new Crypt_RSA();
+$public_key = new phpseclib\Crypt\RSA();
 $public_key->loadKey('-----BEGIN RSA PUBLIC KEY-----\n...');
 JOSE_JWK::encode($public_key); # => JOSE_JWK instance
 ```
@@ -101,7 +101,7 @@ JOSE_JWK::encode($public_key); # => JOSE_JWK instance
 ##### RSA Private Key
 
 ```php
-$private_key = new Crypt_RSA();
+$private_key = new phpseclib\Crypt\RSA();
 $private_key->setPassword($pass_phrase); # skip if not encrypted
 $private_key->loadKey('-----BEGIN RSA PRIVATE KEY-----\n...');
 JOSE_JWK::encode($private_key); # => JOSE_JWK instance
@@ -118,7 +118,7 @@ $components = array(
     'e' => 'AQAB',
     'n' => 'x9vNhcvSrxjsegZAAo4OEuo...'
 );
-JOSE_JWK::decode($components); # => Crypt_RSA instance
+JOSE_JWK::decode($components); # => phpseclib\Crypt\RSA instance
 ```
 
 ##### RSA Private Key

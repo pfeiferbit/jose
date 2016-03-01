@@ -1,6 +1,6 @@
 <?php
 
-require_once dirname(__FILE__) . '/JWT.php';
+use phpseclib\Crypt\RSA;
 
 class JOSE_JWS extends JOSE_JWT
 {
@@ -13,8 +13,26 @@ class JOSE_JWS extends JOSE_JWT
         $this->raw = $jwt->raw;
     }
 
-    function sign($private_key_or_secret, $algorithm = 'HS256')
-    {
+    function toJson($syntax = 'flattened') {
+        if ($syntax == 'flattened') {
+            $components = array(
+                'protected' => $this->compact((object) $this->header),
+                'payload'   => $this->compact((object) $this->claims),
+                'signature' => $this->compact($this->signature)
+            );
+        } else {
+            $components = array(
+                'payload' => $this->compact((object) $this->claims),
+                'signatures' => array(
+                    'protected' => $this->compact((object) $this->header),
+                    'signature' => $this->compact($this->signature)
+                )
+            );
+        }
+        return json_encode($components);
+    }
+
+    function sign($private_key_or_secret, $algorithm = 'HS256') {
         $this->header['alg'] = $algorithm;
         $this->signature = $this->_sign($private_key_or_secret);
         if (!$this->signature) {
@@ -23,9 +41,8 @@ class JOSE_JWS extends JOSE_JWT
         return $this;
     }
 
-    function verify($public_key_or_secret)
-    {
-        if ($this->_verify($public_key_or_secret)) {
+    function verify($public_key_or_secret, $alg = null) {
+        if ($this->_verify($public_key_or_secret, $alg)) {
             return $this;
         }
 
@@ -36,14 +53,15 @@ class JOSE_JWS extends JOSE_JWT
     {
         if ($public_or_private_key instanceof JOSE_JWK) {
             $rsa = $public_or_private_key->toKey();
-        } else if ($public_or_private_key instanceof Crypt_RSA) {
+        } else if ($public_or_private_key instanceof RSA) {
             $rsa = $public_or_private_key;
         } else {
-            $rsa = new Crypt_RSA();
+            $rsa = new RSA();
             $rsa->loadKey($public_or_private_key);
         }
         $rsa->setHash($this->digest());
         $rsa->setMGFHash($this->digest());
+        $rsa->setSaltLength(false); # NOTE: https://github.com/phpseclib/phpseclib/issues/768
         $rsa->setSignatureMode($padding_mode);
         return $rsa;
     }
@@ -86,7 +104,7 @@ class JOSE_JWS extends JOSE_JWT
             case 'RS256':
             case 'RS384':
             case 'RS512':
-                return $this->rsa($private_key_or_secret, CRYPT_RSA_SIGNATURE_PKCS1)->sign($signature_base_string);
+                return $this->rsa($private_key_or_secret, RSA::SIGNATURE_PKCS1)->sign($signature_base_string);
             case 'ES256':
             case 'ES384':
             case 'ES512':
@@ -94,17 +112,20 @@ class JOSE_JWS extends JOSE_JWT
             case 'PS256':
             case 'PS384':
             case 'PS512':
-                return $this->rsa($private_key_or_secret, CRYPT_RSA_SIGNATURE_PSS)->sign($signature_base_string);
+                return $this->rsa($private_key_or_secret, RSA::SIGNATURE_PSS)->sign($signature_base_string);
             default:
                 throw new JOSE_Exception_UnexpectedAlgorithm('Unknown algorithm');
         }
     }
 
-    private function _verify($public_key_or_secret)
-    {
+    private function _verify($public_key_or_secret, $expected_alg = null) {
         $segments = explode('.', $this->raw);
         $signature_base_string = implode('.', array($segments[0], $segments[1]));
-        switch ($this->header['alg']) {
+        if (!$expected_alg) {
+            # NOTE: might better to warn here
+            $expected_alg = $this->header['alg'];
+        }
+        switch ($expected_alg) {
             case 'HS256':
             case 'HS384':
             case 'HS512':
@@ -112,7 +133,7 @@ class JOSE_JWS extends JOSE_JWT
             case 'RS256':
             case 'RS384':
             case 'RS512':
-                return $this->rsa($public_key_or_secret, CRYPT_RSA_SIGNATURE_PKCS1)->verify($signature_base_string, $this->signature);
+                return $this->rsa($public_key_or_secret, RSA::SIGNATURE_PKCS1)->verify($signature_base_string, $this->signature);
             case 'ES256':
             case 'ES384':
             case 'ES512':
@@ -120,7 +141,7 @@ class JOSE_JWS extends JOSE_JWT
             case 'PS256':
             case 'PS384':
             case 'PS512':
-                return $this->rsa($public_key_or_secret, CRYPT_RSA_SIGNATURE_PSS)->verify($signature_base_string, $this->signature);
+                return $this->rsa($public_key_or_secret, RSA::SIGNATURE_PSS)->verify($signature_base_string, $this->signature);
             default:
                 throw new JOSE_Exception_UnexpectedAlgorithm('Unknown algorithm');
         }

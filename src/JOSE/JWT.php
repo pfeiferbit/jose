@@ -1,14 +1,5 @@
 <?php
 
-require_once 'Crypt/RSA.php';
-require_once 'Crypt/AES.php';
-require_once dirname(__FILE__) . '/Exception.php';
-require_once dirname(__FILE__) . '/JWS.php';
-require_once dirname(__FILE__) . '/JWE.php';
-require_once dirname(__FILE__) . '/JWK.php';
-require_once dirname(__FILE__) . '/JWKSet.php';
-require_once dirname(__FILE__) . '/URLSafeBase64.php';
-
 class JOSE_JWT {
     var $header = array(
         'typ' => 'JWT',
@@ -30,15 +21,19 @@ class JOSE_JWT {
         ));
     }
 
+    function __toString() {
+        return $this->toString();
+    }
+
     function sign($private_key_or_secret, $algorithm = 'HS256') {
         $jws = $this->toJWS();
         $jws->sign($private_key_or_secret, $algorithm);
         return $jws;
     }
 
-    function verify($public_key_or_secret) {
+    function verify($public_key_or_secret, $alg = null) {
         $jws = $this->toJWS();
-        $jws->verify($public_key_or_secret);
+        $jws->verify($public_key_or_secret, $alg);
         return $jws;
     }
 

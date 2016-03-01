@@ -1,5 +1,9 @@
 <?php
 
+use phpseclib\Crypt\RSA;
+use phpseclib\Math\BigInteger;
+use phpseclib\Crypt\Hash;
+
 /**
  * JWK
  * 
@@ -35,9 +39,9 @@ class JOSE_JWK
     function toKey() {
         switch ($this->components['kty']) {
             case 'RSA':
-                $rsa = new Crypt_RSA();
-                $n = new Math_BigInteger('0x' . bin2hex(JOSE_URLSafeBase64::decode($this->components['n'])), 16);
-                $e = new Math_BigInteger('0x' . bin2hex(JOSE_URLSafeBase64::decode($this->components['e'])), 16);
+                $rsa = new RSA();
+                $n = new BigInteger('0x' . bin2hex(JOSE_URLSafeBase64::decode($this->components['n'])), 16);
+                $e = new BigInteger('0x' . bin2hex(JOSE_URLSafeBase64::decode($this->components['e'])), 16);
                 if (array_key_exists('d', $this->components)) {
                     throw new JOSE_Exception_UnexpectedAlgorithm('RSA private key isn\'t supported');
                 } else {
@@ -50,13 +54,38 @@ class JOSE_JWK
         }
     }
 
+    function thumbprint($hash_algorithm = 'sha256') {
+        $hash = new Hash($hash_algorithm);
+        return JOSE_URLSafeBase64::encode(
+            $hash->hash(
+                json_encode($this->normalized())
+            )
+        );
+    }
+
+    private function normalized() {
+        switch ($this->components['kty']) {
+            case 'RSA':
+                return array(
+                    'e'   => $this->components['e'],
+                    'kty' => $this->components['kty'],
+                    'n'   => $this->components['n']
+                );
+            default:
+                throw new JOSE_Exception_UnexpectedAlgorithm('Unknown key type');
+        }
+    }
+
     function toString() {
         return json_encode($this->components);
+    }
+    function __toString() {
+        return $this->toString();
     }
 
     static function encode($key, $extra_components = array()) {
         switch(get_class($key)) {
-            case 'Crypt_RSA':
+            case 'phpseclib\Crypt\RSA':
                 $components = array(
                     'kty' => 'RSA',
                     'e' => JOSE_URLSafeBase64::encode($key->publicExponent->toBytes()),

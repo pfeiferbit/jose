@@ -1,5 +1,7 @@
 <?php
 
+use phpseclib\Crypt\Random;
+
 class JOSE_JWE_Test extends JOSE_TestCase {
     var $plain_text;
     var $rsa_keys;
@@ -7,6 +9,20 @@ class JOSE_JWE_Test extends JOSE_TestCase {
     function setUp() {
         parent::setUp();
         $this->plain_text = 'Hello World';
+    }
+
+    function testToString() {
+        $jwe = new JOSE_JWE($this->plain_text);
+        $jwe->encrypt($this->rsa_keys['public']);
+        $segments = explode('.', $jwe->toString());
+        $this->assertEquals(5, count($segments));
+    }
+
+    function test__toString() {
+        $jwe = new JOSE_JWE($this->plain_text);
+        $jwe->encrypt($this->rsa_keys['public']);
+        $segments = explode('.', sprintf('%s', $jwe));
+        $this->assertEquals(5, count($segments));
     }
 
     function testEncryptRSA15_A128CBCHS256() {
@@ -49,16 +65,18 @@ class JOSE_JWE_Test extends JOSE_TestCase {
         $this->assertEquals($this->plain_text, $jwe_decoded->decrypt($this->rsa_keys['private'])->plain_text);
     }
 
+    function testEncryptDir_A128CBCHS256() {
+        $secret = Random::string(256 / 8);
+        $jwe = new JOSE_JWE($this->plain_text);
+        $jwe = $jwe->encrypt($secret, 'dir');
+        $jwe_decoded = JOSE_JWT::decode($jwe->toString());
+        $this->assertEquals($this->plain_text, $jwe_decoded->decrypt($secret)->plain_text);
+    }
+
     function testEncryptA128KW_A128CBCHS256() {
         $jwe = new JOSE_JWE($this->plain_text);
         $this->setExpectedException('JOSE_Exception_UnexpectedAlgorithm');
         $jwe->encrypt($this->rsa_keys['public'], 'A128KW');
-    }
-
-    function testEncryptDir_A128CBCHS256() {
-        $jwe = new JOSE_JWE($this->plain_text);
-        $this->setExpectedException('JOSE_Exception_UnexpectedAlgorithm');
-        $jwe->encrypt($this->rsa_keys['public'], 'dir');
     }
 
     function testEncryptRSA15_Unknown() {
