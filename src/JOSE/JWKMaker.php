@@ -1,5 +1,7 @@
 <?php
 
+use phpseclib\Crypt\RSA;
+
 /**
  * JWKMaker
  * Helper to create JWK file
@@ -151,7 +153,8 @@ class JOSE_JWKMaker
         }
 
 
-        $rsa = new Crypt_RSA();
+        $rsa = new RSA();
+
         if (!$rsa) {
             return null;
         }
@@ -159,13 +162,13 @@ class JOSE_JWKMaker
         
         if ($is_private_key) {
             $rsa->setPassword($pass_phrase);
-            if (!$rsa->loadkey($key_contents, CRYPT_RSA_PRIVATE_FORMAT_PKCS1)) {
+            if (!$rsa->loadKey($key_contents, RSA::PRIVATE_FORMAT_PKCS1)) {
                 throw new InvalidArgumentException(sprintf("failed to load key", $this->file_rsa_key) );
             }
         } else {
             $details = openssl_pkey_get_details($key);
             $pubkey = $details['key'];
-            if (!$rsa->loadkey($pubkey, CRYPT_RSA_PUBLIC_FORMAT_PKCS1)) {
+            if (!$rsa->loadKey($pubkey, RSA::PUBLIC_FORMAT_PKCS1)) {
                 return false;
             }
         }
